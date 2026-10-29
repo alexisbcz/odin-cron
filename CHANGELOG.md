@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-29
+
+### Fixed
+
+- A day-of-week `7/n` item, such as `7/2`, now means Sunday. It used to match no day, so the schedule never fired on it.
+- Numbers with more than four digits, such as `00005` or `*/000015`, now parse by value. They used to fail with `Value_Out_Of_Range` or `Invalid_Step`.
+- `next_n` now returns a slice whose allocation is exactly `len(times)` long, and `nil` with nothing allocated when there are no fire times. It used to keep `count` elements allocated and return a shorter slice, so `delete` freed it with the wrong size.
+
 ## [0.1.0] - 2026-10-29
 
 ### Added
@@ -18,5 +26,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `next_n`, which collects fire times into a slice from the allocator you pass.
 - A `Parse_Error` value for each kind of malformed input, and a `Location` with the field and byte offset.
 
-[Unreleased]: https://github.com/alexisbcz/odin-cron/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/alexisbcz/odin-cron/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/alexisbcz/odin-cron/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/alexisbcz/odin-cron/releases/tag/v0.1.0
