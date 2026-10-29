@@ -111,6 +111,15 @@ test_parse_weekday_seven_is_sunday :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_parse_weekday_seven_with_step_is_sunday :: proc(t: ^testing.T) {
+	// `7/n` runs from 7 to the end of the field, so it can only mean Sunday.
+	s := must_parse(t, "0 0 * * 7/2")
+	testing.expect_value(t, s.weekdays, cron.Weekday_Set{0})
+	s = must_parse(t, "0 0 * * SUN,7/1")
+	testing.expect_value(t, s.weekdays, cron.Weekday_Set{0})
+}
+
+@(test)
 test_parse_weekday_star_step_stays_in_week :: proc(t: ^testing.T) {
 	s := must_parse(t, "0 0 * * */2")
 	testing.expect_value(t, s.weekdays, cron.Weekday_Set{0, 2, 4, 6})

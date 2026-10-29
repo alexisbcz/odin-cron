@@ -320,7 +320,9 @@ parse_item :: proc(s: ^Schedule, field: Field, spec: Field_Spec, item: string, m
 		}
 		lo, hi = v, v
 		if has_step {
-			hi = spec.open_hi
+			// `n/step` runs to the end of the field. Day of week 7 is past
+			// open_hi, so `7/step` keeps 7, which means Sunday.
+			hi = max(spec.open_hi, v)
 		}
 	}
 
