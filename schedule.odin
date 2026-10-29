@@ -158,9 +158,11 @@ Iterator owns no memory and needs no cleanup.
 
 Example:
 	it := cron.iterator_make(s, from)
-	for fire, i in cron.iterate(&it) {
+	count := 0
+	for fire in cron.iterate(&it) {
 		fmt.println(fire)
-		if i == 9 {
+		count += 1
+		if count == 10 {
 			break
 		}
 	}

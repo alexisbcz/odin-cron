@@ -30,7 +30,7 @@ Example:
 		from, _ := time.components_to_time(2026, 10, 30, 12, 7, 0)
 		when_next, ok := cron.next(s, from)
 		if ok {
-			fmt.println(when_next) // 2026-10-30 12:15:00 +0000 UTC
+			fmt.println(when_next) // 2026-10-30 12:15:00 UTC
 		}
 	}
 */
