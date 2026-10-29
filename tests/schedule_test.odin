@@ -385,3 +385,36 @@ test_next_and_prev_agree_with_minute_scan :: proc(t: ^testing.T) {
 		}
 	}
 }
+
+@(test)
+test_next_n_allocation_matches_result_length :: proc(t: ^testing.T) {
+	track: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&track, context.allocator)
+	defer mem.tracking_allocator_destroy(&track)
+	allocator := mem.tracking_allocator(&track)
+
+	// Only two fire times remain before the end of time.Time, out of five asked for.
+	s := must_parse(t, "0 0 1 1 *")
+	times, err := cron.next_n(s, at(t, 2260, 6, 1, 0, 0, 0), 5, allocator)
+	testing.expect_value(t, err, nil)
+	testing.expect_value(t, len(times), 2)
+	// The caller frees with `delete(times)`, which passes len(times) as the size,
+	// so the block must be exactly that long.
+	testing.expect_value(t, track.current_memory_allocated, i64(len(times) * size_of(time.Time)))
+	delete(times, allocator)
+	testing.expect_value(t, len(track.allocation_map), 0)
+}
+
+@(test)
+test_next_n_with_no_fire_times_keeps_no_memory :: proc(t: ^testing.T) {
+	track: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&track, context.allocator)
+	defer mem.tracking_allocator_destroy(&track)
+
+	s := must_parse(t, "0 0 30 2 *")
+	times, err := cron.next_n(s, at(t, 2026, 1, 1, 0, 0, 0), 1000, mem.tracking_allocator(&track))
+	testing.expect_value(t, err, nil)
+	testing.expect(t, times == nil)
+	testing.expect_value(t, len(track.allocation_map), 0)
+	testing.expect_value(t, len(track.bad_free_array), 0)
+}

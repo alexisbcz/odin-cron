@@ -222,7 +222,8 @@ Inputs:
 
 Returns:
 - times: the fire times, owned by the caller; free with `delete(times, allocator)`.
-  It's shorter than `count` when the schedule runs out of fire times.
+  It's shorter than `count` when the schedule runs out of fire times, and
+  `nil`, with nothing allocated, when there are none.
 - err: `nil`, or an allocator error.
 */
 next_n :: proc(
@@ -237,17 +238,30 @@ next_n :: proc(
 	if count <= 0 {
 		return nil, nil
 	}
-	times = make([]time.Time, count, allocator) or_return
+	// Grow as fire times arrive instead of reserving `count` up front, so a
+	// large count for a sparse schedule doesn't allocate memory it never uses.
+	INITIAL_CAPACITY :: 64
+	list := make([dynamic]time.Time, 0, min(count, INITIAL_CAPACITY), allocator) or_return
 	it := iterator_make(s, from)
-	n := 0
 	for fire in iterate(&it) {
-		times[n] = fire
-		n += 1
-		if n == count {
+		if _, e := append(&list, fire); e != nil {
+			delete(list)
+			return nil, e
+		}
+		if len(list) == count {
 			break
 		}
 	}
-	return times[:n], nil
+	if len(list) == 0 {
+		delete(list)
+		return nil, nil
+	}
+	// `delete(times)` frees len(times) elements, so the block must be exactly that long.
+	if _, e := shrink(&list); e != nil {
+		delete(list)
+		return nil, e
+	}
+	return list[:], nil
 }
 
 @(private = "file")
