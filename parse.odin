@@ -432,15 +432,6 @@ parse_value :: proc(spec: Field_Spec, text: string) -> (value: int, err: Parse_E
 		}
 		return n, .None
 	}
-	if len(text) > 0 && is_digit(text[0]) {
-		// Digits that overflow parse_number are still a number, just too large.
-		for c in transmute([]byte)text {
-			if !is_digit(c) {
-				return 0, .Invalid_Value
-			}
-		}
-		return 0, .Value_Out_Of_Range
-	}
 	for name, i in spec.names {
 		if strings.equal_fold(text, name) {
 			return spec.name_lo + i, .None
@@ -449,17 +440,25 @@ parse_value :: proc(spec: Field_Spec, text: string) -> (value: int, err: Parse_E
 	return 0, .Invalid_Value
 }
 
-// parse_number reads a short run of ASCII digits. It rejects signs, spaces and more than four digits.
+// NUMBER_CAP is larger than any valid value or step. parse_number saturates at it.
+@(private = "file")
+NUMBER_CAP :: 10_000
+
+/*
+parse_number reads a run of ASCII digits, with any number of leading zeros.
+It rejects signs and spaces. A value too large for any field saturates at
+NUMBER_CAP, so callers still report it as out of range.
+*/
 @(private = "file")
 parse_number :: proc(text: string) -> (n: int, ok: bool) {
-	if len(text) == 0 || len(text) > 4 {
+	if len(text) == 0 {
 		return 0, false
 	}
 	for c in transmute([]byte)text {
 		if !is_digit(c) {
 			return 0, false
 		}
-		n = n * 10 + int(c - '0')
+		n = min(n * 10 + int(c - '0'), NUMBER_CAP)
 	}
 	return n, true
 }

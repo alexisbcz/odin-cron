@@ -120,6 +120,17 @@ test_parse_weekday_seven_with_step_is_sunday :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_parse_accepts_leading_zeros :: proc(t: ^testing.T) {
+	s := must_parse(t, "00005 0 * * *")
+	testing.expect_value(t, s.minutes, cron.Minute_Set{5})
+	s = must_parse(t, "0 0 * * 0000001")
+	testing.expect_value(t, s.weekdays, cron.Weekday_Set{1})
+	s = must_parse(t, "*/000015 0 * * *")
+	testing.expect_value(t, s.minutes, cron.Minute_Set{0, 15, 30, 45})
+	expect_error(t, "*/99999999999999999999 * * * *", .Invalid_Step)
+}
+
+@(test)
 test_parse_weekday_star_step_stays_in_week :: proc(t: ^testing.T) {
 	s := must_parse(t, "0 0 * * */2")
 	testing.expect_value(t, s.weekdays, cron.Weekday_Set{0, 2, 4, 6})
