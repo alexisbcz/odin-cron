@@ -418,3 +418,95 @@ test_next_n_with_no_fire_times_keeps_no_memory :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(track.allocation_map), 0)
 	testing.expect_value(t, len(track.bad_free_array), 0)
 }
+
+// oracle_days_in reports the length of a month without using the package.
+oracle_days_in :: proc(year, month: int) -> int {
+	for d := 31; d > 28; d -= 1 {
+		if tm, ok := time.components_to_time(year, month, d, 0, 0, 0); ok {
+			y, m, _ := time.date(tm)
+			if y == year && int(m) == month {
+				return d
+			}
+		}
+	}
+	return 28
+}
+
+// oracle_weekday returns 0 for Sunday to 6 for Saturday, using core:time.
+oracle_weekday :: proc(year, month, day: int) -> int {
+	tm, _ := time.components_to_time(year, month, day, 0, 0, 0)
+	return int(time.weekday(tm))
+}
+
+oracle_is_workday :: proc(year, month, day: int) -> bool {
+	wd := oracle_weekday(year, month, day)
+	return wd >= 1 && wd <= 5
+}
+
+// Oracle_Item is one day-field extension, checked by brute force over the month.
+Oracle_Item :: struct {
+	expr: string,
+	want: proc(year, month, day: int) -> bool,
+}
+
+@(test)
+test_day_extensions_agree_with_brute_force :: proc(t: ^testing.T) {
+	items := [?]Oracle_Item {
+		{"0 0 L * *", proc(y, m, d: int) -> bool {return d == oracle_days_in(y, m)}},
+		{"0 0 L-2 * *", proc(y, m, d: int) -> bool {return d == oracle_days_in(y, m) - 2}},
+		{"0 0 LW * *", proc(y, m, d: int) -> bool {
+				// The largest Monday to Friday of the month.
+				for e := oracle_days_in(y, m); e >= 1; e -= 1 {
+					if oracle_is_workday(y, m, e) {
+						return d == e
+					}
+				}
+				return false
+			}},
+		{"0 0 1W * *", proc(y, m, d: int) -> bool {return oracle_nearest(y, m, d, 1)}},
+		{"0 0 15W * *", proc(y, m, d: int) -> bool {return oracle_nearest(y, m, d, 15)}},
+		{"0 0 30W * *", proc(y, m, d: int) -> bool {return oracle_nearest(y, m, d, 30)}},
+		{"0 0 31W * *", proc(y, m, d: int) -> bool {return oracle_nearest(y, m, d, 31)}},
+		{"0 0 * * 5L", proc(y, m, d: int) -> bool {
+				return oracle_weekday(y, m, d) == 5 && d + 7 > oracle_days_in(y, m)
+			}},
+		{"0 0 * * 0#5", proc(y, m, d: int) -> bool {
+				// Count the Sundays up to and including day d.
+				n := 0
+				for e in 1 ..= d {
+					if oracle_weekday(y, m, e) == 0 {
+						n += 1
+					}
+				}
+				return oracle_weekday(y, m, d) == 0 && n == 5
+			}},
+		{"0 0 * * 7/2", proc(y, m, d: int) -> bool {return oracle_weekday(y, m, d) == 0}},
+	}
+	for item in items {
+		s := must_parse(t, item.expr)
+		for year in 2023 ..= 2029 {
+			for month in 1 ..= 12 {
+				for day in 1 ..= oracle_days_in(year, month) {
+					want := item.want(year, month, day)
+					got := cron.matches(s, at(t, year, month, day, 0, 0, 0))
+					testing.expectf(t, got == want, "matches(%q, %d-%02d-%02d) = %v, want %v", item.expr, year, month, day, got, want)
+				}
+			}
+		}
+	}
+}
+
+// oracle_nearest reports whether day d is the Monday to Friday closest to day n in the same month.
+oracle_nearest :: proc(year, month, d, n: int) -> bool {
+	dim := oracle_days_in(year, month)
+	if n > dim {
+		return false
+	}
+	best, best_dist := 0, 1 << 30
+	for e in 1 ..= dim {
+		if oracle_is_workday(year, month, e) && abs(e - n) < best_dist {
+			best, best_dist = e, abs(e - n)
+		}
+	}
+	return d == best
+}
